@@ -1,7 +1,5 @@
-Eine Online Multiplayer Version von Mensch ärgere dich nicht.
-
-Struktur:
-|── index.php                 # Hauptseite / Lobby
+MaDn/
+├── index.php                 # Hauptseite / Lobby
 ├── game.php                  # Spielseite
 ├── api/
 │   ├── create_game.php       # Spiel erstellen
