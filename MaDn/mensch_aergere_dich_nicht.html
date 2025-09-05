@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎲 Mensch ärgere dich nicht - Realtime</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .game-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .game-board-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .game-board {
+            width: 600px;
+            height: 600px;
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            position: relative;
+            display: grid;
+            grid-template-columns: repeat(11, 1fr);
+            grid-template-rows: repeat(11, 1fr);
+            gap: 2px;
+            padding: 15px;
+        }
+                /* Verbesserte Spielfeld-Darstellung */
+        .field.path {
+            background: linear-gradient(135deg, #ffffff, #f8f9fa);
+            border: 2px solid #495057;
+            position: relative;
+        }
+        
+        .field.path::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            background: #6c757d;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        /* Startfelder mit Richtungspfeilen */
+        .field.start-red { 
+            background: linear-gradient(45deg, #ff4444, #ffffff);
+            border: 3px solid #cc0000;
+            box-shadow: 0 0 15px rgba(255, 68, 68, 0.7);
+        }
+        .field.start-blue { 
+            background: linear-gradient(45deg, #4444ff, #ffffff);
+            border: 3px solid #0000cc;
+            box-shadow: 0 0 15px rgba(68, 68, 255, 0.7);
+        }
+        .field.start-green { 
+            background: linear-gradient(45deg, #44ff44, #ffffff);
+            border: 3px solid #00cc00;
+            box-shadow: 0 0 15px rgba(68, 255, 68, 0.7);
+        }
+        .field.start-yellow { 
+            background: linear-gradient(45deg, #ffff44, #ffffff);
+            border: 3px solid #cccc00;
+            box-shadow: 0 0 15px rgba(255, 255, 68, 0.7);
+        }
+        
+        /* Sichere Felder */
+        .field.safe {
+            background: linear-gradient(135deg, #d4edda, #c3e6cb) !important;
+            border: 2px solid #28a745 !important;
+            box-shadow: inset 0 0 10px rgba(40, 167, 69, 0.3);
+        }
+        
+        /* Zielfelder - Weg zur Mitte */
+        .field.goal-red { 
+            background: linear-gradient(90deg, #ff6b6b 0%, #ffffff 100%);
+            border: 2px solid #d32f2f;
+            position: relative;
+        }
+        .field.goal-blue { 
+            background: linear-gradient(180deg, #42a5f5 0%, #ffffff 100%);
+            border: 2px solid #1565c0;
+        }
+        .field.goal-green { 
+            background: linear-gradient(270deg, #66bb6a 0%, #ffffff 100%);
+            border: 2px solid #2e7d32;
+        }
+        .field.goal-yellow { 
+            background: linear-gradient(0deg, #ffee58 0%, #ffffff 100%);
+            border: 2px solid #f57f17;
+        }
+        
+        /* Heimfelder - Häuser in den Ecken */
+        .field.home-red { 
+            background: radial-gradient(circle, #ff6b6b, #ff5252);
+            border: 2px solid #d32f2f;
+            box-shadow: inset 0 0 10px rgba(211, 47, 47, 0.3);
+        }
+        .field.home-blue { 
+            background: radial-gradient(circle, #42a5f5, #2196f3);
+            border: 2px solid #1565c0;
+            box-shadow: inset 0 0 10px rgba(21, 101, 192, 0.3);
+        }
+        .field.home-green { 
+            background: radial-gradient(circle, #66bb6a, #4caf50);
+            border: 2px solid #2e7d32;
+            box-shadow: inset 0 0 10px rgba(46, 125, 50, 0.3);
+        }
+        .field.home-yellow { 
+            background: radial-gradient(circle, #ffee58, #ffeb3b);
+            border: 2px solid #f57f17;
+            box-shadow: inset 0 0 10px rgba(245, 127, 23, 0.3);
+        }
+        
+        /* Leere Felder (Mitte) */
+        .field.empty {
+            background: transparent;
+            border: none;
+        }
+        
+        /* Spezielle Mitte des Bretts */
+        #field-5-5 {
+            background: radial-gradient(circle, #ffd700, #ffed4e) !important;
+            border: 3px solid #f57f17 !important;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.6) !important;
+        }
+        
+        #field-5-5::after {
+            content: '🏆';
+            font-size: 24px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .field {
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            border: 1px solid #ddd;
+            min-height: 40px;
+        }
+        
+        .field:hover {
+            transform: scale(1.05);
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        /* Spielbrett-Bereiche */
+        .field.empty {
+            background: #f8f9fa;
+            border: none;
+        }
+        
+        .field.path {
+            background: #ffffff;
+            border: 2px solid #333;
+        }
+        
+        .field.safe {
+            background: #e8f5e8;
+            border: 2px solid #28a745;
+        }
+        
+        /* Heimfelder (Häuser) */
+        .field.home-red { 
+            background: linear-gradient(135deg, #ff6b6b, #ff5252); 
+            border: 2px solid #d32f2f;
+        }
+        .field.home-blue { 
+            background: linear-gradient(135deg, #42a5f5, #2196f3); 
+            border: 2px solid #1565c0;
+        }
+        .field.home-green { 
+            background: linear-gradient(135deg, #66bb6a, #4caf50); 
+            border: 2px solid #2e7d32;
+        }
+        .field.home-yellow { 
+            background: linear-gradient(135deg, #ffee58, #ffeb3b); 
+            border: 2px solid #f57f17;
+        }
+        
+        /* Startfelder */
+        .field.start-red { 
+            background: #ff4444; 
+            border: 3px solid #cc0000;
+            box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+        }
+        .field.start-blue { 
+            background: #4444ff; 
+            border: 3px solid #0000cc;
+            box-shadow: 0 0 10px rgba(68, 68, 255, 0.5);
+        }
+        .field.start-green { 
+            background: #44ff44; 
+            border: 3px solid #00cc00;
+            box-shadow: 0 0 10px rgba(68, 255, 68, 0.5);
+        }
+        .field.start-yellow { 
+            background: #ffff44; 
+            border: 3px solid #cccc00;
+            box-shadow: 0 0 10px rgba(255, 255, 68, 0.5);
+        }
+        
+        /* Zielfelder */
+        .field.goal-red { 
+            background: linear-gradient(45deg, #ff6b6b, #ffffff); 
+            border: 2px solid #d32f2f;
+        }
+        .field.goal-blue { 
+            background: linear-gradient(45deg, #42a5f5, #ffffff); 
+            border: 2px solid #1565c0;
+        }
+        .field.goal-green { 
+            background: linear-gradient(45deg, #66bb6a, #ffffff); 
+            border: 2px solid #2e7d32;
+        }
+        .field.goal-yellow { 
+            background: linear-gradient(45deg, #ffee58, #ffffff); 
+            border: 2px solid #f57f17;
+        }
+        
+        /* Figuren */
+        .figure {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 3px solid #333;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+            color: white;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+        }
+        
+        .figure:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+            z-index: 15;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        .figure.red { 
+            background: linear-gradient(135deg, #ff4444, #cc0000);
+            border-color: #990000;
+        }
+        .figure.blue { 
+            background: linear-gradient(135deg, #4444ff, #0000cc);
+            border-color: #000099;
+        }
+        .figure.green { 
+            background: linear-gradient(135deg, #44ff44, #00cc00);
+            border-color: #009900;
+        }
+        .figure.yellow { 
+            background: linear-gradient(135deg, #ffff44, #cccc00);
+            border-color: #999900;
+            color: #333;
+        }
+        
+        .figure.selectable {
+            animation: pulse 1s infinite;
+            box-shadow: 0 0 20px rgba(255, 255, 0, 0.8);
+        }
+        
+        .figure.moveable {
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.6);
+            border-color: #00ff00;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.3); }
+        }
+        
+        /* Würfel */
+        .dice-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .dice {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #fff, #f0f0f0);
+            border: 3px solid #333;
+            border-radius: 15px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .dice:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .dice.rolling {
+            animation: roll 0.6s ease-in-out;
+        }
+        
+        @keyframes roll {
+            0% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(90deg) scale(1.1); }
+            50% { transform: rotate(180deg) scale(1.2); }
+            75% { transform: rotate(270deg) scale(1.1); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+        
+        /* Spieler-Info */
+        .player-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 5px solid #ddd;
+            transition: all 0.3s;
+        }
+        
+        .player-info:hover {
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .player-info.active {
+            border-left-color: #28a745;
+            background: #d4edda;
+            box-shadow: 0 2px 10px rgba(40, 167, 69, 0.2);
+        }
+        
+        .player-info.current-turn {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { box-shadow: 0 2px 10px rgba(255, 193, 7, 0.3); }
+            to { box-shadow: 0 4px 20px rgba(255, 193, 7, 0.6); }
+        }
+        
+        .player-info.red { border-left-color: #ff4444; }
+        .player-info.blue { border-left-color: #4444ff; }
+        .player-info.green { border-left-color: #44ff44; }
+        .player-info.yellow { border-left-color: #ffff44; }
+        
+        /* Chat */
+        .chat {
+            height: 200px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+        }
+        
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chat-input input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        /* Buttons */
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn.success { background: #28a745; }
+        .btn.success:hover { background: #1e7e34; }
+        .btn.danger { background: #dc3545; }
+        .btn.warning { background: #ffc107; color: #333; }
+        
+        /* Status */
+        .status-bar {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 10px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        
+        .connection-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .connection-status.connected { background: #28a745; }
+        .connection-status.disconnected { background: #dc3545; }
+        .connection-status.connecting { background: #ffc107; }
+        
+        /* Game Log */
+        .game-log {
+            height: 150px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 12px;
+            border: 1px solid #ddd;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border-left: 3px solid #ddd;
+        }
+        
+        .log-entry.move { 
+            background: #d1ecf1; 
+            border-left-color: #17a2b8;
+        }
+        .log-entry.chat { 
+            background: #d4edda; 
+            border-left-color: #28a745;
+        }
+        .log-entry.system { 
+            background: #f8d7da; 
+            border-left-color: #dc3545;
+        }
+        .log-entry.win { 
+            background: #fff3cd; 
+            border-left-color: #ffc107;
+            font-weight: bold;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .game-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+            }
+            
+            .game-board {
+                width: 500px;
+                height: 500px;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .game-board {
+                width: 350px;
+                height: 350px;
+            }
+            
+            .figure {
+                width: 20px;
+                height: 20px;
+                font-size: 10px;
+            }
+            
+            .dice {
+                width: 60px;
+                height: 60px;
+                font-size: 24px;
+            }
+        }
+        
+        /* Highlight-Effekte */
+        .field.possible-move {
+            background: rgba(0, 255, 0, 0.3) !important;
+            border-color: #00ff00 !important;
+            animation: highlight 1s ease-in-out infinite alternate;
+        }
+        
+        @keyframes highlight {
+            from { box-shadow: 0 0 5px rgba(0, 255, 0, 0.5); }
+            to { box-shadow: 0 0 15px rgba(0, 255, 0, 0.8); }
+        }
+        
+        .field.last-move {
+            background: rgba(255, 255, 0, 0.3) !important;
+            border-color: #ffff00 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>🎲 Mensch ärgere dich nicht</h1>
+            <span id="gameTitle">Spiel wird geladen...</span>
+        </div>
+        <div>
+            <span class="connection-status" id="connectionStatus"></span>
+            <span id="connectionText">Verbinde...</span>
+        </div>
+    </div>
+    
+    <div class="game-container">
+        <!-- Linke Sidebar: Spieler & Steuerung -->
+        <div class="sidebar">
+            <h3>👥 Mitspieler</h3>
+            <div id="playersList"></div>
+            
+            <div class="dice-container">
+                <h3>🎲 Würfeln</h3>
+                <div class="dice" id="dice" onclick="rollDice()">?</div>
+                <div id="diceResult"></div>
+                <small>💡 Tipp: Leertaste zum Würfeln</small>
+            </div>
+            
+            <div class="status-bar">
+                <strong>Spielstatus:</strong>
+                <div id="gameStatus">Warte auf Mitspieler...</div>
+                <div id="currentPlayer"></div>
+            </div>
+            
+            <button class="btn success" onclick="startGame()" id="startBtn">🚀 Spiel starten</button>
+            
+            <div style="margin-top: 20px; font-size: 12px; color: #666;">
+                <h4>📋 Spielregeln:</h4>
+                <ul style="padding-left: 20px;">
+                    <li>🎯 <strong>6 würfeln</strong> → Figur raussetzen</li>
+                    <li>🚶 <strong>Figur bewegen</strong> → Augenzahl vorwärts</li>
+                    <li>💥 <strong>Gegner schlagen</strong> → zurück ins Haus</li>
+                    <li>🏆 <strong>Alle 4 Figuren ins Ziel</strong> → Gewonnen!</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Mitte: Spielbrett -->
+        <div class="game-board-container">
+            <div class="game-board" id="gameBoard">
+                <!-- Spielbrett wird dynamisch generiert -->
+            </div>
+        </div>
+        
+        <!-- Rechte Sidebar: Chat & Log -->
+        <div class="sidebar">
+            <h3>💬 Spieler-Chat</h3>
+            <div class="chat" id="chatMessages"></div>
+            <div class="chat-input">
+                <input type="text" id="chatInput" placeholder="Nachricht an alle..." onkeypress="handleChatKeypress(event)">
+                <button class="btn" onclick="sendChatMessage()">📤</button>
+            </div>
+            
+            <h3>📋 Spielverlauf</h3>
+            <div class="game-log" id="gameLog"></div>
+            
+            <div style="margin-top: 15px; font-size: 11px; color: #888;">
+                <strong>🎮 Steuerung:</strong><br>
+                • <kbd>Leertaste</kbd> = Würfeln<br>
+                • <kbd>Enter</kbd> = Chat fokussieren<br>
+                • <kbd>Klick</kbd> = Figur/Feld auswählen
+            </div>
+        </div>
+    </div>
+    
+    <!-- Join Dialog -->
+    <div id="joinDialog" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+        <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 400px;">
+            <h2>🎲 Mensch ärgere dich nicht</h2>
+            <p>Tritt einem Spiel bei oder erstelle ein neues:</p>
+            
+            <div style="margin: 20px 0;">
+                <label><strong>Spiel-ID:</strong></label><br>
+                <input type="text" id="joinGameId" value="madn-runde-1" style="width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 5px;">
+                <small style="color: #666;">z.B. "familie-schmidt" oder "freunde-2024"</small>
+            </div>
+            
+            <div style="margin: 20px 0;">
+                <label><strong>Dein Name:</strong></label><br>
+                <input type="text" id="joinPlayerName" placeholder="Wie heißt du?" style="width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 5px;">
+            </div>
+            
+            <button class="btn success" onclick="joinGame()" style="width: 100%; margin-top: 20px;">
+                🚀 Mitspielen!
+            </button>
+            
+            <div style="margin-top: 15px; font-size: 12px; color: #666;">
+                💡 <strong>Tipp:</strong> Teile die Spiel-ID mit deinen Freunden,<br>
+                damit sie dem gleichen Spiel beitreten können!
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Globale Variablen
+        let gameId = '';
+        let playerId = '';
+        let playerName = '';
+        let isConnected = false;
+        let pollInterval = null;
+        let lastPollTime = new Date().toISOString();
+        let gameData = {};
+        let currentDiceValue = 0;
+        let selectableFigures = [];
+        let selectedFigure = null;
+        let currentPlayerTurn = null;
+        
+          // Mensch ärgere dich nicht Spielbrett Layout (11x11 Grid)
+        const BOARD_LAYOUT = {
+            // Startfelder (wo Figuren rauskommen) - die bunten Pfeile
+            starts: {
+                red: {row: 4, col: 1},      // Links, nach rechts zeigend
+                blue: {row: 1, col: 6},     // Oben, nach unten zeigend
+                green: {row: 6, col: 9},    // Rechts, nach links zeigend  
+                yellow: {row: 9, col: 4}    // Unten, nach oben zeigend
+            },
+            
+            // Heimfelder (Häuser - 2x2 Bereiche in den Ecken)
+            homes: {
+                red: {
+                    fields: [
+                        {row: 0, col: 0}, {row: 0, col: 1}, 
+                        {row: 1, col: 0}, {row: 1, col: 1}
+                    ]
+                },
+                blue: {
+                    fields: [
+                        {row: 0, col: 9}, {row: 0, col: 10}, 
+                        {row: 1, col: 9}, {row: 1, col: 10}
+                    ]
+                },
+                green: {
+                    fields: [
+                        {row: 9, col: 9}, {row: 9, col: 10}, 
+                        {row: 10, col: 9}, {row: 10, col: 10}
+                    ]
+                },
+                yellow: {
+                    fields: [
+                        {row: 9, col: 0}, {row: 9, col: 1}, 
+                        {row: 10, col: 0}, {row: 10, col: 1}
+                    ]
+                }
+            },
+            
+            // Zielfelder (die 4 Felder zum Ziel in der Mitte)
+            goals: {
+                red: [
+                    {row: 4, col: 2}, {row: 4, col: 3}, {row: 4, col: 4}, {row: 4, col: 5}
+                ],
+                blue: [
+                    {row: 2, col: 6}, {row: 3, col: 6}, {row: 4, col: 6}, {row: 5, col: 6}
+                ],
+                green: [
+                    {row: 6, col: 8}, {row: 6, col: 7}, {row: 6, col: 6}, {row: 6, col: 5}
+                ],
+                yellow: [
+                    {row: 8, col: 4}, {row: 7, col: 4}, {row: 6, col: 4}, {row: 5, col: 4}
+                ]
+            }
+        };
+        
+        // Hauptpfad um das Brett (40 Felder im Uhrzeigersinn)
+        const MAIN_PATH = [
+            // Start bei Rot (Position 0) - Links
+            {row: 4, col: 0},
+            
+            // Hoch zur blauen Seite (Positionen 1-9)
+            {row: 3, col: 0}, {row: 2, col: 0}, {row: 1, col: 0}, {row: 0, col: 0},
+            {row: 0, col: 1}, {row: 0, col: 2}, {row: 0, col: 3}, {row: 0, col: 4}, {row: 0, col: 5},
+            
+            // Blau Start (Position 10) - Oben
+            {row: 0, col: 6},
+            
+            // Nach rechts zur grünen Seite (Positionen 11-19)
+            {row: 0, col: 7}, {row: 0, col: 8}, {row: 0, col: 9}, {row: 0, col: 10},
+            {row: 1, col: 10}, {row: 2, col: 10}, {row: 3, col: 10}, {row: 4, col: 10}, {row: 5, col: 10},
+            
+            // Grün Start (Position 20) - Rechts
+            {row: 6, col: 10},
+            
+            // Runter zur gelben Seite (Positionen 21-29)
+            {row: 7, col: 10}, {row: 8, col: 10}, {row: 9, col: 10}, {row: 10, col: 10},
+            {row: 10, col: 9}, {row: 10, col: 8}, {row: 10, col: 7}, {row: 10, col: 6}, {row: 10, col: 5},
+            
+            // Gelb Start (Position 30) - Unten
+            {row: 10, col: 4},
+            
+            // Nach links zurück zu Rot (Positionen 31-39)
+            {row: 10, col: 3}, {row: 10, col: 2}, {row: 10, col: 1}, {row: 10, col: 0},
+            {row: 9, col: 0}, {row: 8, col: 0}, {row: 7, col: 0}, {row: 6, col: 0}, {row: 5, col: 0}
+            // Position 39 führt zurück zu Position 0
+        ];
+        
+        // Sichere Felder (können nicht geschlagen werden)
+        const SAFE_FIELDS = [
+            {row: 4, col: 0},   // Rot Start
+            {row: 0, col: 6},   // Blau Start  
+            {row: 6, col: 10},  // Grün Start
+            {row: 10, col: 4},  // Gelb Start
+            {row: 2, col: 8},   // Beispiel: Sicheres Feld
+            {row: 8, col: 2},   // Beispiel: Sicheres Feld
+            {row: 2, col: 2},   // Beispiel: Sicheres Feld
+            {row: 8, col: 8}    // Beispiel: Sicheres Feld
+        ];
+        
+        function initializeGameBoard() {
+            const board = document.getElementById('gameBoard');
+            board.innerHTML = '';
+            
+            // 11x11 Grid erstellen
+            for (let row = 0; row < 11; row++) {
+                for (let col = 0; col < 11; col++) {
+                    const field = document.createElement('div');
+                    field.className = 'field';
+                    field.dataset.row = row;
+                    field.dataset.col = col;
+                    field.id = `field-${row}-${col}`;
+                    
+                    // Feldtyp bestimmen
+                    const fieldType = getFieldType(row, col);
+                    field.classList.add(fieldType);
+                    
+                    // Feld-Nummer für Debugging
+                    const pathIndex = getPathIndex(row, col);
+                    if (pathIndex !== -1) {
+                        field.dataset.pathIndex = pathIndex;
+                        field.title = `Feld ${pathIndex}`;
+                        
+                        // Pfeil-Richtung anzeigen (optional)
+                        if (isStartField(row, col)) {
+                            const startColor = getStartFieldColor(row, col);
+                            const arrow = getArrowForStart(startColor);
+                            field.innerHTML = `<span style="font-size: 20px;">${arrow}</span>`;
+                        }
+                    }
+                    
+                    // Sichere Felder markieren
+                    if (isSafeField(row, col)) {
+                        field.classList.add('safe');
+                        field.innerHTML = `<span style="font-size: 16px;">🛡️</span>`;
+                    }
+                    
+                    // Click-Handler für Figuren-Bewegung
+                    field.addEventListener('click', () => handleFieldClick(row, col));
+                    
+                    board.appendChild(field);
+                }
+            }
+            
+            log('🎲 Authentisches Mensch-ärgere-dich-nicht Spielbrett erstellt!', 'system');
+        }
+        
+        function getFieldType(row, col) {
+            // Heimfelder prüfen (Häuser in den Ecken)
+            for (const [color, home] of Object.entries(BOARD_LAYOUT.homes)) {
+                for (const homeField of home.fields) {
+                    if (row === homeField.row && col === homeField.col) {
+                        return `home-${color}`;
+                    }
+                }
+            }
+            
+            // Startfelder prüfen (bunte Pfeile)
+            for (const [color, start] of Object.entries(BOARD_LAYOUT.starts)) {
+                if (row === start.row && col === start.col) {
+                    return `start-${color}`;
+                }
+            }
+            
+            // Zielfelder prüfen (Weg zum Ziel in der Mitte)
+            for (const [color, goals] of Object.entries(BOARD_LAYOUT.goals)) {
+                for (const goalField of goals) {
+                    if (row === goalField.row && col === goalField.col) {
+                        return `goal-${color}`;
+                    }
+                }
+            }
+            
+            // Hauptpfad prüfen (der Rundkurs)
+            const pathIndex = getPathIndex(row, col);
+            if (pathIndex !== -1) {
+                return 'path';
+            }
+            
+            // Leeres Feld (Mitte und Zwischenräume)
+            return 'empty';
+        }
+        
+        function getPathIndex(row, col) {
+            for (let i = 0; i < MAIN_PATH.length; i++) {
+                if (MAIN_PATH[i].row === row && MAIN_PATH[i].col === col) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+        
+        function isStartField(row, col) {
+            for (const [color, start] of Object.entries(BOARD_LAYOUT.starts)) {
+                if (row === start.row && col === start.col) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        function getStartFieldColor(row, col) {
+            for (const [color, start] of Object.entries(BOARD_LAYOUT.starts)) {
+                if (row === start.row && col === start.col) {
+                    return color;
+                }
+            }
+            return null;
+        }
+        
+        function getArrowForStart(color) {
+            const arrows = {
+                red: '➡️',    // Nach rechts
+                blue: '⬇️',   // Nach unten
+                green: '⬅️',  // Nach links
+                yellow: '⬆️'  // Nach oben
+            };
+            return arrows[color] || '🎯';
+        }
+        
+        function isSafeField(row, col) {
+            return SAFE_FIELDS.some(field => field.row === row && field.col === col);
+        }
+
+        
+        function getFieldType(row, col) {
+            // Heimfelder prüfen
+            for (const [color, home] of Object.entries(BOARD_LAYOUT.homes)) {
+                for (const homeField of home.fields) {
+                    if (row === homeField.row && col === homeField.col) {
+                        return `home-${color}`;
+                    }
+                }
+            }
+            
+        // Startfelder prüfen
+        for (const [color, start] of Object.entries(BOARD_LAYOUT.starts)) {
+            if (row === start.row && col === start.col) {
+                return `start-${color}`;
+            }
+        }
+        
+        // Zielfelder prüfen
+        for (const [color, goals] of Object.entries(BOARD_LAYOUT.goals)) {
+            for (const goalField of goals) {
+                if (row === goalField.row && col === goalField.col) {
+                    return `goal-${color}`;
+                }
+            }
+        }
+        
+        // Hauptpfad prüfen
+        const pathIndex = getPathIndex(row, col);
+        if (pathIndex !== -1) {
+            return 'path';
+        }
+        
+        // Leeres Feld
+        return 'empty';
+    }
+    
+    function getPathIndex(row, col) {
+        for (let i = 0; i < MAIN_PATH.length; i++) {
+            if (MAIN_PATH[i].row === row && MAIN_PATH[i].col === col) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    
+    function handleFieldClick(row, col) {
+        if (!selectedFigure || currentDiceValue === 0) {
+            return;
+        }
+        
+        // Prüfen ob das ein gültiges Zielfeld ist
+        if (isValidMove(selectedFigure, row, col)) {
+            moveFigureToField(selectedFigure.id, row, col);
+        } else {
+            log('❌ Ungültiger Zug!', 'system');
+        }
+    }
+    
+    function isValidMove(figure, targetRow, targetCol) {
+        // Vereinfachte Validierung - in echtem Spiel würde hier die komplette Logik stehen
+        const targetField = document.getElementById(`field-${targetRow}-${targetCol}`);
+        return targetField && (
+            targetField.classList.contains('path') || 
+            targetField.classList.contains('goal-' + figure.color) ||
+            targetField.classList.contains('start-' + figure.color)
+        );
+    }
+    
+    // Spiel beitreten
+    async function joinGame() {
+        gameId = document.getElementById('joinGameId').value.trim();
+        playerName = document.getElementById('joinPlayerName').value.trim();
+        
+        if (!gameId || !playerName) {
+            alert('Bitte Spiel-ID und Namen eingeben!');
+            return;
+        }
+        
+        playerId = playerName; // Vereinfacht - normalerweise würde Server eine ID vergeben
+        
+        try {
+            updateConnectionStatus('connecting', 'Verbinde...');
+            
+            const formData = new FormData();
+            formData.append('action', 'join_game');
+            formData.append('game_id', gameId);
+            formData.append('player_name', playerName);
+            
+            const response = await fetch('api/game_actions.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                isConnected = true;
+                document.getElementById('joinDialog').style.display = 'none';
+                document.getElementById('gameTitle').textContent = `Spiel: ${gameId}`;
+                
+                updateConnectionStatus('connected', 'Verbunden');
+                log(`🎉 Erfolgreich Spiel "${gameId}" beigetreten als ${playerName}`, 'system');
+                
+                // Polling starten
+                startPolling();
+                
+                // Demo-Figuren platzieren
+                setTimeout(() => initializeDemoFigures(), 1000);
+                
+            } else {
+                throw new Error(data.error || 'Unbekannter Fehler');
+            }
+            
+        } catch (error) {
+            updateConnectionStatus('disconnected', 'Fehler');
+            log(`❌ Verbindungsfehler: ${error.message}`, 'system');
+            alert('Fehler beim Beitreten: ' + error.message);
+        }
+    }
+    
+    // Polling für Realtime-Updates
+    function startPolling() {
+        if (pollInterval) {
+            clearTimeout(pollInterval);
+        }
+        
+        poll();
+    }
+    
+    async function poll() {
+        if (!isConnected) return;
+        
+        try {
+            const response = await fetch(`api/game_state.php?game_id=${gameId}&since=${encodeURIComponent(lastPollTime)}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                gameData = data;
+                lastPollTime = new Date().toISOString();
+                
+                // UI Updates
+                updatePlayersList(data.players || []);
+                updateGameStatus(data.game_info);
+                
+                // Neue Nachrichten verarbeiten
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(msg => {
+                        addChatMessage(msg.player_name, msg.message, msg.player_color);
+                    });
+                }
+                
+                // Spiel-Events verarbeiten
+                if (data.events && data.events.length > 0) {
+                    data.events.forEach(event => {
+                        processGameEvent(event);
+                    });
+                }
+                
+            } else {
+                log(`⚠️ Polling-Fehler: ${data.error}`, 'system');
+            }
+            
+        } catch (error) {
+            log(`❌ Verbindungsfehler: ${error.message}`, 'system');
+            updateConnectionStatus('disconnected', 'Verbindung verloren');
+        }
+        
+        // Nächsten Poll planen
+        pollInterval = setTimeout(poll, 2000);
+    }
+    
+    function updatePlayersList(players) {
+        const container = document.getElementById('playersList');
+        container.innerHTML = '';
+        
+        players.forEach((player, index) => {
+            const playerDiv = document.createElement('div');
+            playerDiv.className = `player-info ${player.player_color}`;
+            
+            if (player.player_name === playerName) {
+                playerDiv.classList.add('active');
+            }
+            
+            if (currentPlayerTurn === player.player_name) {
+                playerDiv.classList.add('current-turn');
+            }
+            
+            const statusIcon = 
+                player.status === 'online' ? '🟢' :
+                player.status === 'away' ? '🟡' : '🔴';
+            
+            const colorEmoji = {
+                red: '🔴',
+                blue: '🔵', 
+                green: '🟢',
+                yellow: '🟡'
+            }[player.player_color] || '⚪';
+            
+            playerDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span><strong>${player.player_name}</strong> ${colorEmoji}</span>
+                    <span>${statusIcon}</span>
+                </div>
+                <div style="font-size: 12px; color: #666;">
+                    Spieler ${player.position} • ${player.player_color}
+                    ${player.player_name === playerName ? ' (Du)' : ''}
+                    ${currentPlayerTurn === player.player_name ? ' • Am Zug' : ''}
+                </div>
+            `;
+            
+            container.appendChild(playerDiv);
+        });
+        
+        // Plätze für weitere Spieler anzeigen
+        for (let i = players.length; i < 4; i++) {
+            const emptySlot = document.createElement('div');
+            emptySlot.className = 'player-info';
+            emptySlot.style.opacity = '0.5';
+            emptySlot.innerHTML = `
+                <div>
+                    <span>Warte auf Spieler ${i + 1}...</span>
+                    <span>⏳</span>
+                </div>
+                <div style="font-size: 12px; color: #666;">
+                    Platz frei
+                </div>
+            `;
+            container.appendChild(emptySlot);
+        }
+    }
+    
+    function updateGameStatus(gameInfo) {
+        const statusElement = document.getElementById('gameStatus');
+        const currentPlayerElement = document.getElementById('currentPlayer');
+        
+        if (!gameInfo) {
+            statusElement.textContent = 'Lade Spielinformationen...';
+            return;
+        }
+        
+        switch (gameInfo.game_state) {
+            case 'waiting':
+                statusElement.textContent = 'Warte auf weitere Mitspieler...';
+                currentPlayerElement.textContent = '';
+                break;
+                
+            case 'running':
+                statusElement.textContent = 'Spiel läuft';
+                if (gameInfo.current_player) {
+                    currentPlayerTurn = gameInfo.current_player;
+                    if (gameInfo.current_player === playerName) {
+                        currentPlayerElement.innerHTML = '<strong style="color: #28a745;">🎯 Du bist dran!</strong>';
+                    } else {
+                        currentPlayerElement.textContent = `Warte auf ${gameInfo.current_player}...`;
+                    }
+                }
+                break;
+                
+            case 'finished':
+                statusElement.textContent = 'Spiel beendet';
+                if (gameInfo.winner) {
+                    if (gameInfo.winner === playerName) {
+                        currentPlayerElement.innerHTML = '<strong style="color: #ffc107;">🏆 Du hast gewonnen!</strong>';
+                    } else {
+                        currentPlayerElement.textContent = `🏆 ${gameInfo.winner} hat gewonnen!`;
+                    }
+                }
+                break;
+                
+            default:
+                statusElement.textContent = 'Unbekannter Status';
+        }
+    }
+    
+    function processGameEvent(event) {
+        switch (event.event_type) {
+            case 'player_joined':
+                log(`👋 ${event.player_name} ist dem Spiel beigetreten`, 'system');
+                break;
+                
+            case 'game_started':
+                log(`🚀 Spiel gestartet! ${event.player_name} beginnt.`, 'system');
+                break;
+                
+            case 'dice_rolled':
+                const diceValue = event.data ? JSON.parse(event.data).dice_value : '?';
+                log(`🎲 ${event.player_name} würfelte: ${diceValue}`, 'move');
+                break;
+                
+            case 'figure_moved':
+                log(`🚶 ${event.player_name} bewegte eine Figur`, 'move');
+                break;
+                
+            case 'figure_beaten':
+                log(`💥 ${event.player_name} schlug eine gegnerische Figur!`, 'move');
+                break;
+                
+            case 'player_won':
+                log(`🏆 ${event.player_name} hat das Spiel gewonnen! 🎉`, 'win');
+                break;
+        }
+    }
+    
+    // Spiel starten
+    async function startGame() {
+        if (!isConnected) {
+            alert('Nicht mit Spiel verbunden!');
+            return;
+        }
+        
+        try {
+            const formData = new FormData();
+            formData.append('action', 'start_game');
+            formData.append('game_id', gameId);
+            formData.append('player_id', playerId);
+            
+            const response = await fetch('api/game_actions.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                log('🚀 Spiel gestartet!', 'system');
+                document.getElementById('startBtn').disabled = true;
+            } else {
+                throw new Error(data.error);
+            }
+            
+        } catch (error) {
+            log(`❌ Fehler beim Starten: ${error.message}`, 'system');
+            alert('Fehler beim Starten: ' + error.message);
+        }
+    }
+    
+    // Würfeln
+    async function rollDice() {
+        if (!isConnected) {
+            log('⚠️ Nicht mit Spiel verbunden!', 'system');
+            return;
+        }
+        
+        if (currentPlayerTurn !== playerName) {
+            log('⚠️ Du bist nicht dran!', 'system');
+            return;
+        }
+        
+        if (currentDiceValue > 0) {
+            log('⚠️ Du hast bereits gewürfelt! Bewege eine Figur.', 'system');
+            return;
+        }
+        
+        try {
+            // Würfel-Animation
+            const diceElement = document.getElementById('dice');
+            diceElement.classList.add('rolling');
+            diceElement.textContent = '🎲';
+            
+            const formData = new FormData();
+            formData.append('action', 'roll_dice');
+            formData.append('game_id', gameId);
+            formData.append('player_id', playerId);
+            
+            const response = await fetch('api/game_actions.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            setTimeout(() => {
+                diceElement.classList.remove('rolling');
+                
+                if (data.success) {
+                    const diceValue = data.dice_value;
+                    currentDiceValue = diceValue;
+                    
+                    diceElement.textContent = diceValue;
+                    document.getElementById('diceResult').textContent = `Gewürfelt: ${diceValue}`;
+                    
+                    if (diceValue === 6) {
+                        log(`🎲 Super! Du würfeltest eine 6 - du darfst nochmal! 🎉`, 'move');
+                    } else {
+                        log(`🎲 Du würfeltest: ${diceValue}`, 'move');
+                    }
+                    
+                    // Bewegbare Figuren hervorheben
+                    highlightMoveableFigures(diceValue);
+                    
+                } else {
+                    diceElement.textContent = '?';
+                    throw new Error(data.error);
+                }
+            }, 600);
+            
+        } catch (error) {
+            log(`❌ Würfel-Fehler: ${error.message}`, 'system');
+        }
+    }
+    
+    function highlightMoveableFigures(diceValue) {
+        clearHighlights();
+        
+        const playerColor = getPlayerColor();
+        const figures = document.querySelectorAll(`.figure.${playerColor}`);
+        
+        figures.forEach(figure => {
+            if (canMoveFigure(figure, diceValue)) {
+                figure.classList.add('selectable');
+            }
+        });
+        
+        if (document.querySelectorAll('.figure.selectable').length === 0) {
+            log('😔 Keine Figur kann bewegt werden. Zug wird übersprungen.', 'system');
+            setTimeout(() => {
+                endTurn();
+            }, 2000);
+        } else {
+            log('✨ Klicke auf eine hervorgehobene Figur zum Bewegen', 'system');
+        }
+    }
+    
+    function canMoveFigure(figure, diceValue) {
+        // Vereinfachte Logik - echtes Spiel würde komplexere Regeln haben
+        const figureField = figure.parentElement;
+        const row = parseInt(figureField.dataset.row);
+        const col = parseInt(figureField.dataset.col);
+        
+        // Figur im Haus - braucht 6 zum Raussetzen
+        if (figureField.classList.contains('home-' + getPlayerColor())) {
+            return diceValue === 6;
+        }
+        
+        // Figur auf dem Brett - kann immer bewegt werden (vereinfacht)
+        return true;
+    }
+    
+    function clearHighlights() {
+        document.querySelectorAll('.figure').forEach(f => f.classList.remove('selectable', 'moveable'));
+        document.querySelectorAll('.field').forEach(f => f.classList.remove('possible-move', 'last-move'));
+        selectedFigure = null;
+    }
+    
+    // Figur bewegen
+    async function moveFigureToField(figureId, row, col) {
+        try {
+            const formData = new FormData();
+            formData.append('action', 'move_figure');
+            formData.append('game_id', gameId);
+            formData.append('player_id', playerId);
+            formData.append('data', JSON.stringify({
+                figure_id: figureId,
+                from_position: 0, // Vereinfacht
+                to_position: row * 11 + col, // Position als eindeutige Zahl
+                dice_value: currentDiceValue
+            }));
+            
+            const response = await fetch('api/game_actions.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                log(`🚶 Figur ${figureId} bewegt nach (${row}, ${col})`, 'move');
+                
+                // Figur visuell bewegen
+                placeFigureOnBoard(figureId, row, col, getPlayerColor());
+                
+                // Zug beenden
+                endTurn();
+                
+            } else {
+                throw new Error(data.error);
+            }
+            
+        } catch (error) {
+            log(`❌ Bewegungs-Fehler: ${error.message}`, 'system');
+        }
+    }
+    
+    function endTurn() {
+        // Würfel zurücksetzen
+        currentDiceValue = 0;
+        document.getElementById('dice').textContent = '?';
+        document.getElementById('diceResult').textContent = '';
+        
+        // Highlights entfernen
+        clearHighlights();
+        
+        log('✅ Zug beendet', 'move');
+    }
+    
+    function placeFigureOnBoard(figureId, row, col, color) {
+        // Alte Figur entfernen falls vorhanden
+        const oldFigure = document.getElementById(`figure-${figureId}-${color}`);
+        if (oldFigure) {
+            oldFigure.remove();
+        }
+        
+        // Neue Figur erstellen
+        const figure = document.createElement('div');
+        figure.className = `figure ${color}`;
+        figure.id = `figure-${figureId}-${color}`;
+        figure.dataset.figureId = figureId;
+        figure.dataset.color = color;
+        figure.textContent = figureId; // Figur-Nummer anzeigen
+        
+        // Figur auf Feld platzieren
+        const field = document.getElementById(`field-${row}-${col}`);
+        if (field) {
+            field.appendChild(figure);
+            
+            // Click-Handler für Figur
+            figure.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectFigure(figureId, color, figure);
+            });
+        }
+    }
+    
+    function selectFigure(figureId, color, figureElement) {
+        if (currentDiceValue === 0) {
+            log('⚠️ Erst würfeln!', 'system');
+            return;
+        }
+        
+        if (color !== getPlayerColor()) {
+            log('⚠️ Das ist nicht deine Figur!', 'system');
+            return;
+        }
+        
+        if (!figureElement.classList.contains('selectable')) {
+            log('⚠️ Diese Figur kann nicht bewegt werden!', 'system');
+            return;
+        }
+        
+        // Alle Figuren deselektieren
+        clearHighlights();
+        
+        // Diese Figur selektieren
+        figureElement.classList.add('moveable');
+        selectedFigure = {
+            id: figureId,
+            color: color,
+            element: figureElement
+        };
+        
+        log(`✨ Figur ${figureId} ausgewählt`, 'move');
+        
+        // Mögliche Zielfelder hervorheben
+        highlightPossibleMoves(figureId, figureElement);
+    }
+    
+    function highlightPossibleMoves(figureId, figureElement) {
+        const currentField = figureElement.parentElement;
+        const currentRow = parseInt(currentField.dataset.row);
+        const currentCol = parseInt(currentField.dataset.col);
+        
+        // Vereinfacht: Alle Pfad-Felder in der Nähe als mögliche Ziele markieren
+        for (let r = Math.max(0, currentRow - 2); r <= Math.min(10, currentRow + 2); r++) {
+            for (let c = Math.max(0, currentCol - 2); c <= Math.min(10, currentCol + 2); c++) {
+                const field = document.getElementById(`field-${r}-${c}`);
+                if (field && (field.classList.contains('path') || field.classList.contains('goal-' + getPlayerColor()))) {
+                    field.classList.add('possible-move');
+                }
+            }
+        }
+        
+        log(`🎯 Mögliche Züge für Figur ${figureId} hervorgehoben`, 'move');
+    }
+    
+    function getPlayerColor() {
+        if (gameData.players) {
+            const player = gameData.players.find(p => p.player_name === playerName);
+            return player ? player.player_color : 'red';
+        }
+        return 'red';
+    }
+    
+    // Demo-Figuren beim Start platzieren
+    function initializeDemoFigures() {
+        const playerColor = getPlayerColor();
+        
+        // 4 Figuren in den Heimbereich platzieren
+        const homeFields = BOARD_LAYOUT.homes[playerColor];
+        if (homeFields && homeFields.fields) {
+            homeFields.fields.forEach((field, index) => {
+                if (index < 4) { // Maximal 4 Figuren
+                    placeFigureOnBoard(index + 1, field.row, field.col, playerColor);
+                }
+            });
+        }
+        
+        log(`🏠 ${playerColor} Figuren im Heimbereich platziert`, 'system');
+    }
+    
+    // Chat-Funktionen
+    async function sendChatMessage() {
+        const input = document.getElementById('chatInput');
+        const message = input.value.trim();
+        
+        if (!message || !isConnected) return;
+        
+        try {
+            const formData = new FormData();
+            formData.append('action', 'send_message');
+            formData.append('game_id', gameId);
+            formData.append('player_id', playerId);
+            formData.append('message', message);
+            
+            const response = await fetch('api/chat.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                input.value = '';
+                log(`💬 Nachricht gesendet: ${message}`, 'chat');
+            } else {
+                throw new Error(data.error);
+            }
+            
+        } catch (error) {
+            log(`❌ Chat-Fehler: ${error.message}`, 'system');
+        }
+    }
+    
+    function handleChatKeypress(event) {
+        if (event.key === 'Enter') {
+            sendChatMessage();
+        }
+    }
+    
+    function addChatMessage(playerName, message, playerColor) {
+        const chatContainer = document.getElementById('chatMessages');
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.style.margin = '5px 0';
+        messageDiv.style.padding = '8px';
+        messageDiv.style.borderRadius = '8px';
+        messageDiv.style.backgroundColor = '#f8f9fa';
+        messageDiv.style.borderLeft = `4px solid ${getColorHex(playerColor)}`;
+        
+        messageDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <strong style="color: ${getColorHex(playerColor)};">${escapeHtml(playerName)}</strong>
+                <span style="font-size: 10px; color: #666;">${new Date().toLocaleTimeString()}</span>
+            </div>
+            <div style="color: #333;">${escapeHtml(message)}</div>
+        `;
+        
+        chatContainer.appendChild(messageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+    
+    function getColorHex(colorName) {
+        const colors = {
+            red: '#dc3545',
+            blue: '#007bff',
+            green: '#28a745',
+            yellow: '#ffc107'
+        };
+        return colors[colorName] || '#333';
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Utility-Funktionen
+    function updateConnectionStatus(status, text) {
+        const statusElement = document.getElementById('connectionStatus');
+        const textElement = document.getElementById('connectionText');
+        
+        statusElement.className = `connection-status ${status}`;
+        textElement.textContent = text;
+    }
+    
+    function log(message, type = 'system') {
+        const logContainer = document.getElementById('gameLog');
+        
+        const logEntry = document.createElement('div');
+        logEntry.className = `log-entry ${type}`;
+        logEntry.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>${message}</span>
+                <span style="color: #666; font-size: 10px;">${new Date().toLocaleTimeString()}</span>
+            </div>
+        `;
+        
+        logContainer.appendChild(logEntry);
+        logContainer.scrollTop = logContainer.scrollHeight;
+        
+        // Konsole auch loggen
+        console.log(`[${new Date().toLocaleTimeString()}] ${message}`);
+    }
+    
+    // Cleanup beim Schließen
+    window.addEventListener('beforeunload', function() {
+        if (isConnected) {
+            isConnected = false;
+            if (pollInterval) {
+                clearTimeout(pollInterval);
+            }
+        }
+    });
+    
+    // Keyboard-Shortcuts
+    document.addEventListener('keydown', function(event) {
+        if (event.key === ' ' && event.target.tagName !== 'INPUT') {
+            event.preventDefault();
+            rollDice();
+        }
+        
+        if (event.key === 'Enter' && event.target.tagName !== 'INPUT') {
+            event.preventDefault();
+            document.getElementById('chatInput').focus();
+        }
+        
+        if (event.key === 'Escape') {
+            clearHighlights();
+        }
+    });
+    
+    // Touch-Support für Mobile
+    let touchStartX = 0;
+    let touchStartY = 0;
+    
+    document.addEventListener('touchstart', function(e) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    });
+    
+    document.addEventListener('touchend', function(e) {
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+        const deltaX = touchEndX - touchStartX;
+        const deltaY = touchEndY - touchStartY;
+        
+        // Swipe-Gesten für Mobile
+        if (Math.abs(deltaX) > 50 || Math.abs(deltaY) > 50) {
+            // Swipe erkannt - könnte für Figuren-Bewegung genutzt werden
+        }
+    });
+            // Demo-Figuren beim Start platzieren
+        function initializeDemoFigures() {
+            const playerColor = getPlayerColor();
+            
+            // 4 Figuren in den Heimbereich platzieren
+            const homeFields = BOARD_LAYOUT.homes[playerColor];
+            if (homeFields && homeFields.fields) {
+                homeFields.fields.forEach((field, index) => {
+                    placeFigureOnBoard(index + 1, field.row, field.col, playerColor);
+                });
+            }
+            
+            // Demo: Eine Figur auf das Startfeld setzen
+            const startField = BOARD_LAYOUT.starts[playerColor];
+            if (startField) {
+                setTimeout(() => {
+                    placeFigureOnBoard(5, startField.row, startField.col, playerColor);
+                    log(`🎯 Demo-Figur auf Startfeld (${startField.row}, ${startField.col}) gesetzt`, 'system');
+                }, 2000);
+            }
+            
+            log(`🏠 ${playerColor} Figuren platziert - 4 im Haus, 1 auf Start`, 'system');
+        }
+
+</script>
+</body>
+</html>
